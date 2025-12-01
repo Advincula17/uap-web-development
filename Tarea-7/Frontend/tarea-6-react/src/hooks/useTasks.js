@@ -1,15 +1,16 @@
 // src/hooks/useTasks.js
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { useParams } from 'react-router-dom';
 
-const fetchTasks = async () => {
-  const res = await fetch('/api/tasks');
+const fetchTasks = async (boardId) => {
+  const res = await fetch(`/api/boards/${boardId}/tasks`);
   if (!res.ok) throw new Error('Error al obtener tareas');
   return res.json();
 };
 
-const addTaskApi = async (text) => {
-  const res = await fetch('/api/tasks', {
+const addTaskApi = async ({ boardId, text }) => {
+  const res = await fetch(`/api/boards/${boardId}/tasks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text })
@@ -18,8 +19,8 @@ const addTaskApi = async (text) => {
   return res.json();
 };
 
-const toggleTaskApi = async ({ id, completed }) => {
-  const res = await fetch(`/api/tasks/${id}`, {
+const toggleTaskApi = async ({ boardId, id, completed }) => {
+  const res = await fetch(`/api/boards/${boardId}/tasks/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ completed })
@@ -28,14 +29,16 @@ const toggleTaskApi = async ({ id, completed }) => {
   return res.json();
 };
 
-const deleteTaskApi = async (id) => {
-  const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+const deleteTaskApi = async ({ boardId, id }) => {
+  const res = await fetch(`/api/boards/${boardId}/tasks/${id}`, {
+    method: 'DELETE'
+  });
   if (!res.ok) throw new Error('Error al eliminar tarea');
   return true;
 };
 
-const editTaskApi = async ({ id, text }) => {
-  const res = await fetch(`/api/tasks/${id}`, {
+const editTaskApi = async ({ boardId, id, text }) => {
+  const res = await fetch(`/api/boards/${boardId}/tasks/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text })
@@ -46,44 +49,46 @@ const editTaskApi = async ({ id, text }) => {
 
 export function useTasks() {
   const queryClient = useQueryClient();
+  const { boardId } = useParams();
 
   const { data: tasks = [], isLoading, error } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: fetchTasks
+    queryKey: ['tasks', boardId],
+    queryFn: () => fetchTasks(boardId),
+    enabled: !!boardId
   });
 
   const addTask = useMutation({
-    mutationFn: addTaskApi,
+    mutationFn: ({ text }) => addTaskApi({ boardId, text }),
     onSuccess: () => {
       toast.success('Tarea agregada');
-      queryClient.invalidateQueries(['tasks']);
+      queryClient.invalidateQueries(['tasks', boardId]);
     },
     onError: () => toast.error('Error al agregar tarea'),
   });
 
   const toggleTask = useMutation({
-    mutationFn: toggleTaskApi,
+    mutationFn: ({ id, completed }) => toggleTaskApi({ boardId, id, completed }),
     onSuccess: () => {
       toast.success('Tarea actualizada');
-      queryClient.invalidateQueries(['tasks']);
+      queryClient.invalidateQueries(['tasks', boardId]);
     },
     onError: () => toast.error('Error al actualizar tarea'),
   });
 
   const deleteTask = useMutation({
-    mutationFn: deleteTaskApi,
+    mutationFn: ({ id }) => deleteTaskApi({ boardId, id }),
     onSuccess: () => {
       toast.success('Tarea eliminada');
-      queryClient.invalidateQueries(['tasks']);
+      queryClient.invalidateQueries(['tasks', boardId]);
     },
     onError: () => toast.error('Error al eliminar tarea'),
   });
 
   const editTask = useMutation({
-    mutationFn: editTaskApi,
+    mutationFn: ({ id, text }) => editTaskApi({ boardId, id, text }),
     onSuccess: () => {
       toast.success('Tarea editada');
-      queryClient.invalidateQueries(['tasks']);
+      queryClient.invalidateQueries(['tasks', boardId]);
     },
     onError: () => toast.error('Error al editar tarea'),
   });
